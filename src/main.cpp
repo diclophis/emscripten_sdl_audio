@@ -89,6 +89,7 @@ int main(int argc, char** argv) {
   fmt.format = AUDIO_S16;
   fmt.channels = 2;
   fmt.samples = (int)((1.0 / 35.0) * ((float)fmt.freq / (float)sizeof(short)));
+  printf("%d\n", fmt.samples);
   fmt.callback = mixaudio;
   fmt.userdata = NULL;
 
