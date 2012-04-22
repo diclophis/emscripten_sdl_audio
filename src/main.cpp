@@ -15,7 +15,7 @@ static int m_CurrentSound = 0;
 
 
 void mixaudio(void *unused, Uint8 *stream, int len) {
-  printf("%d, %d\n", sizeof(short), len);
+  //printf("short=%d, Uint8=%d len=%d\n", sizeof(short), sizeof(Uint8), len);
   memset(stream, 0, len);
   int read = ModPlug_Read(m_Sounds[m_CurrentSound], stream, len);
   if (read == 0) {
@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
   fmt.freq = 44100;
   fmt.format = AUDIO_S16;
   fmt.channels = 2;
-  fmt.samples = 32;
+  fmt.samples = (int)((1.0 / 35.0) * ((float)fmt.freq / (float)sizeof(short)));
   fmt.callback = mixaudio;
   fmt.userdata = NULL;
 
