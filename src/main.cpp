@@ -4,18 +4,23 @@
 #include <dirent.h>
 #include <vector>
 
-#include "modplug.h"
 
+#include "modplug.h"
 #include "SDL.h"
 #include "SDL_audio.h"
 
-static std::vector<ModPlugFile *> m_Sounds;
 
-static short int *outData;
+static std::vector<ModPlugFile *> m_Sounds;
+static int m_CurrentSound = 0;
 
 
 void mixaudio(void *unused, Uint8 *stream, int len) {
-  //Engine::CurrentGameDoAudio((short *)stream, len);
+  printf("%d, %d\n", sizeof(short), len);
+  memset(stream, 0, len);
+  int read = ModPlug_Read(m_Sounds[m_CurrentSound], stream, len);
+  if (read == 0) {
+    ModPlug_Seek(m_Sounds[m_CurrentSound], 0);
+  }
 }
 
 
@@ -51,7 +56,7 @@ int alphasort(const struct dirent **a, const struct dirent **b) {
 int main(int argc, char** argv) {
   struct dirent *dp;
   struct dirent **dps;
-  const char *dir_path="../../assets/sounds/";
+  const char *dir_path="/assets/sounds/";
   DIR *dir = opendir(dir_path);
   if (dir) {
     while ((dp=readdir(dir)) != NULL) {
@@ -63,7 +68,13 @@ int main(int argc, char** argv) {
         fseek(fd, 0, SEEK_END);
         unsigned int len = ftell(fd);
         rewind(fd);
-        //Engine::PushBackFileHandle(SOUNDS, fd, 0, len);
+        void *buffer = (void *)malloc(sizeof(char) * len);
+        fseek(fd, 0, SEEK_SET);
+        size_t r = fread(buffer, 1, len, fd);
+        if (r > 0) {
+          m_Sounds.push_back(ModPlug_Load(buffer, len));
+        }
+        free(buffer);
       }
     
       free(tmp);
@@ -72,14 +83,12 @@ int main(int argc, char** argv) {
     closedir(dir);
   }
 
-  outData = (short int *)calloc(512, sizeof(short int));
-
   // Set 16-bit stereo audio at 44.1Khz
   SDL_AudioSpec fmt;
   fmt.freq = 44100;
   fmt.format = AUDIO_S16;
   fmt.channels = 2;
-  fmt.samples = 512;
+  fmt.samples = 32;
   fmt.callback = mixaudio;
   fmt.userdata = NULL;
 
@@ -90,7 +99,7 @@ int main(int argc, char** argv) {
     SDL_PauseAudio(0);
   }
 
-  throw 0;
+  throw 0; //crashes the main loop and allows the callbacks to proceed, kinda ugly
 
   return 0;
 }

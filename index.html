@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en-us" manifest="index.appcache">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta charset="utf-8">
+    <title>SDL_Audio Test</title>
+    <style>
+      canvas { width: 320px; height: 480px; background-color: blue; padding-left: 0; padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
+    </style>
+    <script>
+      var installerTimeout = window.setTimeout(function() {
+        try {
+          window.applicationCache.update();
+        } catch (e) {
+          console.log("user is activly denying application install, the only option here is to reload()");
+          //window.location.reload();
+        }
+      }, 10000);
+
+      // Checking for an update. Always the first event fired in the sequence.
+      window.applicationCache.addEventListener("checking", function(e) {
+        window.clearTimeout(installerTimeout);
+        console.log("checking");
+      }, false);
+
+      // Fired after the first cache of the manifest.
+      window.applicationCache.addEventListener("cached", function(e) {
+        console.log("cached");
+      }, false);
+
+      // An update was found. The browser is fetching resources.
+      window.applicationCache.addEventListener('downloading', function(e) {
+        console.log("downloading");
+      }, false);
+
+      // The manifest returns 404 or 410, the download failed,
+      // or the manifest changed while the download was in progress.
+      window.applicationCache.addEventListener('error', function(e) {
+        window.clearTimeout(installerTimeout);
+        console.log("error, not sure what to do here");
+      }, false);
+
+      // Fired after the first download of the manifest.
+      window.applicationCache.addEventListener('noupdate', function(e) {
+        window.clearTimeout(installerTimeout);
+        console.log("no update required....");
+      }, false);
+
+      // Fired if the manifest file returns a 404 or 410.
+      // This results in the application cache being deleted.
+      window.applicationCache.addEventListener('obsolete', function(e) {
+        console.log("cache is obsolete");
+      }, false);
+
+      // Fired for each resource listed in the manifest as it is being fetched.
+      window.applicationCache.addEventListener('progress', function(e) {
+        console.log("progress");
+      }, false);
+
+      function onUpdateReady() {  
+        console.log("found new version!, SWAP()");  
+        //window.applicationCache.swapCache();
+      }
+
+      window.applicationCache.addEventListener("updateready", onUpdateReady);  
+      if(window.applicationCache.status === window.applicationCache.UPDATEREADY) {  
+        onUpdateReady();  
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        //var startGame = cwrap('__Z10start_gamei', 'number', ['number']);
+        var buttons = document.getElementsByTagName("button");
+        for (i in buttons) {
+          buttons[i].onclick = function(e) {
+          };
+        }
+        var manifestFile = new XMLHttpRequest();
+        manifestFile.open("GET", document.getElementsByTagName("html").item(0).getAttribute("manifest"), true);
+        manifestFile.onload = function(e) {
+          var assets = FS.createFolder("/", "assets", true, false);
+          var sounds = FS.createFolder(assets, "sounds", true, false);
+          var lines = this.response.split("\n");
+          for (i in lines) {
+            (function() {
+              var line = lines[i];
+              if (line.indexOf("/assets") == 0) {
+                addRunDependency();
+                var lastSlashIndex = line.lastIndexOf("/");
+                var dirName = line.substr(0, lastSlashIndex);
+                var baseName = line.substr(lastSlashIndex + 1, line.length);
+                var dataFile = new XMLHttpRequest();
+                dataFile.open("GET", line, true);
+                dataFile.responseType = "arraybuffer";
+                dataFile.onload = function(e) {
+                  var arrayBuffer = this.response;
+                  var byteArray = arrayBuffer.byteLength ? new Uint8Array(arrayBuffer) : arrayBuffer;
+                  FS.createDataFile(dirName, baseName, byteArray, true, false);
+                  removeRunDependency();
+                }
+                dataFile.send(null);
+              }
+            })();
+          }
+          removeRunDependency();
+        }
+        manifestFile.send(null);
+      });
+    </script>
+  </head>
+  <body>
+    <script>
+      var Module = {
+        noInitialRun: true,
+        print: (function() {
+          return function(text) {
+            console.log(text);
+          };
+        })(),
+        canvas: (function() { var canvas = document.createElement("canvas"); document.body.appendChild(canvas); return canvas; })(),
+        setStatus: function(text) {
+          console.log(text);
+        },
+        totalDependencies: 0,
+        monitorRunDependencies: function(left) {
+          this.totalDependencies = Math.max(this.totalDependencies, left);
+          Module.setStatus(left ? 'Downloading: ' + (this.totalDependencies-left) + '/' + this.totalDependencies : 'All downloads complete.');
+        },
+        preRun: function() {
+          // this is odd, and is actually fixed in incoming branch of emscripten
+          window.SDL = {
+            structs: {
+              AudioSpec: Runtime.generateStructInfo([
+                ['i32', 'freq'],
+                ['i16', 'format'],
+                ['i8', 'channels'],
+                ['i8', 'silence'],
+                ['i16', 'samples'],
+                ['i32', 'size'],
+                ['void*', 'callback'],
+                ['void*', 'userdata']
+              ])
+            }
+          };
+        }
+      };
+    </script>
+    <button value="0.wav">0</button>
+    <script src="sdlaudio.js"></script>
+  </body>
+</html>
